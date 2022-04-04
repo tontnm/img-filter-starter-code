@@ -1,6 +1,6 @@
 import express from 'express';
 import bodyParser from 'body-parser';
-import {filterImageFromURL, deleteLocalFiles} from './util/util';
+import {filterImageFromURL, deleteLocalFiles, isUrl} from './util/util';
 
 (async () => {
 
@@ -28,26 +28,39 @@ import {filterImageFromURL, deleteLocalFiles} from './util/util';
   //   the filtered image file [!!TIP res.sendFile(filteredpath); might be useful]
 
   /**************************************************************************** */
-  app.get("/filteredimage", async (req, res) => {
-    let image_url = req.query.image_url
-    let filePath: string
-    if (!image_url.startsWith("public/")) {
-      return res.send("invalid image_url")
-    }
-    try {
-      filePath = await filterImageFromURL(image_url)
-    } catch (error) {
-      return res.send(error)
-    }
-    return res.sendFile(filePath, function (err) {
-      if (err) {
-        console.log(err)
-      } else
-        deleteLocalFiles([filePath])
-      }
-    )
-  });
+
   //! END @TODO1
+
+  app.get( "/filteredimage", async ( req, res ) => {
+    //query parameter from requirement
+    let image_url:string = req.query.image_url;
+
+    // requirement 1. validate image_url query - test if exists
+    if(!image_url){
+      res.status(422).send("Image URL required");
+    }
+
+    // requirement 1. validate image_url query - if exists, test if formatted properly
+    if(!isUrl(image_url)){
+      res.status(422).send("Image URL malformed");
+    }
+
+    // requirement 2. call filterImageFromURL(image_url)
+    filterImageFromURL(image_url)
+    .then(filterResult => {
+      
+      // requirement 3. send the resulting file in the response
+      res.status(200).sendFile(filterResult, () => {
+
+        // requirement 4. delete any files on server on completion of response
+        // using chained arrow function on sendfile to determine if the send is completed
+        deleteLocalFiles([filterResult]);
+      })
+    })
+    
+
+
+  } );
   
   // Root Endpoint
   // Displays a simple message to the user
